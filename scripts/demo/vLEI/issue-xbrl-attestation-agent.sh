@@ -106,7 +106,7 @@ sleep 3
 echo "iXBRL data attestation from person"
 OOR_SAID=$(curl -X GET "http://localhost:5630/credentials/person?type=received" -H "accept: application/json" -H "Content-Type: application/json" | jq '.[0] | .sad.d')
 echo $OOR_SAID
-echo \"$OOR_SAID\" | jq -f ${KERI_DEMO_SCRIPT_DIR}/data/xbrl-edges-filter.jq > /tmp/xbrl-edges.json
+echo $OOR_SAID | jq -f ${KERI_DEMO_SCRIPT_DIR}/data/xbrl-edges-filter.jq > /tmp/xbrl-edges.json
 kli saidify --file /tmp/xbrl-edges.json
 XBRL_EDGES=`cat /tmp/xbrl-edges.json`
 XBRL_DATA=`cat ../data/xbrl-data.json`
