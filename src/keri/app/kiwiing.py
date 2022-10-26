@@ -4,7 +4,11 @@ KERI
 keri.app.agenting module
 
 """
+from curses import raw
+import datetime
 import json
+from operator import truediv
+from pickle import TRUE
 
 import falcon
 import mnemonic
@@ -12,6 +16,9 @@ from falcon import media
 from hio.base import doing
 from hio.core import http
 from hio.help import decking
+from keri.core import scheming
+
+from keri.help import helping
 
 from . import grouping, challenging, connecting, notifying, signaling, oobiing
 from .. import help
@@ -24,6 +31,7 @@ from ..end import ending
 from ..peer import exchanging
 from ..vc import proving, protocoling, walleting
 from ..vdr import verifying, credentialing
+from keri import core
 
 logger = help.ogler.getLogger()
 
@@ -1514,6 +1522,282 @@ class CredentialEnd(doing.DoDoer):
 
             yield self.tock
 
+    def on_post_verify(self, req, rep, alias):
+        """ Verify ACDC Credential POST endpoint
+
+        Parameters:
+            req: falcon.Request HTTP request
+            rep: falcon.Response HTTP response
+            alias (str): human readable name of identifier
+
+        ---
+        summary:  Verify the data of the credential against the schema, the SAID of the credential and the SAD Path signatures
+        description:  Verify the data of the credential against the schema, the SAID of the credential and the SAD Path signatures
+        tags:
+           - Credentials
+        parameters:
+           - in: path
+             name: alias
+             schema:
+               type: string
+             required: true
+             description: Human readable alias for the identifier
+           - in: query
+             name: type
+             schema:
+                type: string
+             description:  type of credential , [json|cesr]
+             required: true
+        requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    sad:
+                      type: object
+                      required: true
+                      description: SAD of the credential to process
+                    sadsigers:
+                      type: string
+                      required: true
+                      description: sad path signatures from transferable identifier
+                    sadcigars:
+                      type: string
+                      required: false
+                      description: sad path signatures from non-transferable identifier
+        responses:
+           200:
+              description: Verification status
+        """
+        
+        typ = req.params.get("type")
+        if typ != "json":
+            rep.status = falcon.HTTP_400
+            rep.text = "only JSON data supported currently"
+            return
+
+        hab = self.hby.habByName(alias)
+        if hab is None:
+            rep.status = falcon.HTTP_404
+            rep.text = f"Alias {alias} is not a valid reference to an identfier"
+            return
+
+        body = req.get_media()
+        data = None
+
+        if typ == "json":
+            try:
+                if "sad" not in body:
+                    rep.status = falcon.HTTP_400
+                    rep.text = "Credential details required"
+                    return
+                if "sadsigers" not in body:
+                    rep.status = falcon.HTTP_400
+                    rep.text = "SAD path signatures from transferable identifier required"
+                    return        
+                if "sadcigars" not in body:
+                    rep.status = falcon.HTTP_400
+                    rep.text = "SAD path signatures from non-transferable identifier required"
+                    return
+                
+                # remove whitespace
+                val = json.dumps(body, separators=(",", ":"), ensure_ascii=False)                
+                data = json.loads(val)                
+            except json.JSONDecodeError:
+                rep.status = falcon.HTTP_400
+                rep.text = "credential or data supplied must be value JSON"
+                return
+            except (ValueError, TypeError, Exception) as e:
+                rep.status = falcon.HTTP_400
+                rep.text = e.args[0]
+                return
+            
+            credSAD = data["sad"]
+            sadsigers = data["sadsigers"]
+            sadcigars = data["sadcigars"]
+            
+            ims=bytearray(json.dumps(credSAD, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))            
+            creder = proving.Creder(raw=ims)
+            sadtsgs = []  # List of tuples from extracted SAD path sig groups from transferable identifiers, each converted group is tuple of (path, i, s, d) quad plus list of sigs            
+            sadcigs = []  # List of tuples from extracted SAD path sig groups from non-trans identifiers, # each converted group is path plus list of non-trans sigs
+            for siger in sadsigers:
+                pather = coring.Pather(bext=siger["path"])
+                prefixer=coring.Prefixer(qb64=siger["pre"])
+                seqner=coring.Seqner(sn=siger["sn"])
+                saider=coring.Saider(qb64=siger["d"])
+                tsigs = [coring.Siger(qb64=s) for s in siger["sigers"]]
+
+                sadtsgs.append((pather, prefixer, seqner, saider, tsigs))
+
+            args = dict(creder=creder)
+            if sadtsgs:
+                args["sadsigers"] = sadtsgs
+            if sadcigs:
+                args["sadcigars"] = sadcigs            
+
+            res=dict()
+            try:
+                isValid=self.processCredential(**args)
+                res["cred_status"]=isValid
+
+                rep.status = falcon.HTTP_200        
+                rep.content_type = "application/json"
+                rep.data = json.dumps(res).encode("utf-8")
+            except Exception as e:
+                rep.status = falcon.HTTP_400
+                rep.content_type = "application/json"
+                # res["errors"]=e.args[0]
+                # sed["$id"] = ""
+                # sed["$schema"] = "http://json-schema.org/draft-07/schema#"
+                res.update(dict(                    
+                    error=dict(
+                        messasge=e.args[0]
+                    )
+                ))
+                rep.data = json.dumps(res).encode("utf-8")                
+            # except (ValueError, TypeError, Exception, kering.KeriError) as ex:
+            #     rep.status = falcon.HTTP_400
+            #     rep.text = ex.args[0]
+    
+    def processCredential(self, creder, sadsigers=None, sadcigars=None):
+        """ Credential data and signature(s) verification
+
+        Verify the data of the credential against the schema, the SAID of the credential and
+        the CESR Proof on the credential and if valid, store the credential
+
+        Parameters:
+            creder (Creder): that contains the credential to process
+            sadsigers (list): sad path signatures from transferable identifier
+            sadcigars (list): sad path signatures from non-transferable identifier
+
+        """
+        regk = creder.status
+        vcid = creder.said
+        schema = creder.schema
+        prov = creder.crd["e"]
+
+        sadcigars = sadcigars if sadcigars is not None else []
+        sadsigers = sadsigers if sadsigers is not None else []
+
+        # if regk not in self.tevers:  # registry event not found yet
+        #     if self.escrowMRE(creder, sadsigers, sadcigars):
+        #         self.cues.append(dict(kin="telquery", q=dict(ri=regk, i=vcid)))
+        #     raise kering.MissingRegistryError("registry identifier {} not in Tevers".format(regk))
+
+        # state = self.tevers[regk].vcState(vcid)
+        # if state is None:  # credential issuance event not found yet
+        #     if self.escrowMRE(creder, sadsigers, sadcigars):
+        #         self.cues.append(dict(kin="telquery", q=dict(ri=regk, i=vcid)))
+        #     raise kering.MissingRegistryError("credential identifier {} not in Tevers".format(vcid))
+
+        dtnow = helping.nowUTC()
+        # dte = helping.fromIso8601(state.ked["dt"])
+        # if (dtnow - dte) > datetime.timedelta(seconds=self.CredentialExpiry):
+        #     if self.escrowMRE(creder, sadsigers, sadcigars):
+        #         self.cues.append(dict(kin="telquery", q=dict(ri=regk, i=vcid)))
+        #     raise kering.MissingRegistryError("credential identifier {} is out of date".format(vcid))
+        # elif state.ked["et"] in (coring.Ilks.rev, coring.Ilks.brv):  # no escrow, credential has been revoked
+        #     logger.error("credential {} in registrying is not in issued state".format(vcid, regk))
+        #     # Log this and continue instead of the previous exception so we save a revoked credential.
+        #     # raise kering.InvalidCredentialStateError("..."))
+
+        # Verify the credential against the schema
+        scraw = self.verifier.resolver.resolve(schema)
+        if not scraw:
+            raise kering.ConfigurationError("Credential schema {} not found.  It must be loaded with data oobi before "
+                                            "verifying credential".format(schema))
+        # if not scraw:
+        #     if self.escrowMSE(creder, sadsigers, sadcigars):
+        #         self.cues.append(dict(kin="query", q=dict(r="schema", said=schema)))
+        #     raise kering.MissingSchemaError("schema {} not in cache".format(schema))
+
+        schemer = scheming.Schemer(raw=scraw)
+        try:
+            schemer.verify(creder.raw)
+        except kering.ValidationError as ex:
+            print("Credential {} is not valid against schema {}: {}"
+                  .format(creder.said, schema, ex))
+            raise kering.FailedSchemaValidationError("Credential {} is not valid against schema {}: {}"
+                                                     .format(creder.said, schema, ex))
+
+        for (pather, cigar) in sadcigars:
+            if not cigar.verfer.verify(cigar.raw, creder.raw):  # cig not verify
+                # self.verifier.escrowPSC(creder, sadsigers, sadcigars)
+                raise kering.MissingSignatureError("Failure satisfying credential on sigs for {}"
+                                                   " for evt = {}.".format(cigar,
+                                                                           creder.crd))
+
+        rooted = False
+        for (pather, prefixer, seqner, saider, sigers) in sadsigers:
+            if pather.bext != "-":
+                continue
+
+            rooted = True
+            if prefixer.qb64 not in self.hby.kevers or self.hby.kevers[prefixer.qb64].sn < seqner.sn:
+                # if self.escrowMIE(creder, sadsigers, sadcigars):
+                #     self.cues.append(dict(kin="query", q=dict(pre=prefixer.qb64, sn=seqner.sn)))
+                raise kering.MissingIssuerError("issuer identifier {} not in Kevers".format(prefixer.qb64))
+
+            # Verify the signatures are valid and that the signature threshold as of the signing event is met
+            tholder, verfers = self.hby.resolveVerifiers(pre=prefixer.qb64, sn=seqner.sn, dig=saider.qb64)
+            _, indices = eventing.verifySigs(creder.raw, sigers, verfers)
+
+            if not tholder.satisfy(indices):  # We still don't have all the sigers, need to escrow
+                # self.verifier.escrowPSC(creder, sadsigers, sadcigars)
+                raise kering.MissingSignatureError("Failure satisfying credential sith = {} on sigs for {}"
+                                                   " for evt = {}.".format(tholder.sith,
+                                                                           [siger.qb64 for siger in sigers],
+                                                                           creder.crd))                
+        # if not rooted:
+        #     print("Missing root signature for ", vcid)
+        #     raise kering.MissingSignatureError("No root signature on credential with paths {}"
+        #                                        " for evt = {}.".format([pather.bext for (pather, _, _, _, _)
+        #                                                                in sadsigers],
+        #                                                                creder.crd))
+
+        return True
+
+        # if isinstance(prov, list):
+        #     edges = prov
+        # elif isinstance(prov, dict):
+        #     edges = [prov]
+        # else:
+        #     print(f"Invalid type for edges: {prov}")
+        #     raise kering.ValidationError(f"invalid type for edges: {prov}")
+        
+        # for edge in edges:
+        #     for label, node in edge.items():
+        #         if label in ('d', 'o'):  # SAID or Operator of this edge block
+        #             continue
+        #         nodeSaid = node["n"]
+        #         state = self.verifyChain(nodeSaid)
+        #         if state is None:
+        #             self.escrowMCE(creder, sadsigers, sadcigars)
+        #             self.cues.append(dict(kin="proof",  said=nodeSaid))
+        #             raise kering.MissingChainError("Failure to verify credential {} chain {}({})"
+        #                                            .format(creder.said, label, nodeSaid))
+
+        #         dtnow = helping.nowUTC()
+        #         dte = helping.fromIso8601(state.ked["dt"])
+        #         if (dtnow - dte) > datetime.timedelta(seconds=self.CredentialExpiry):
+        #             self.escrowMCE(creder, sadsigers, sadcigars)
+        #             self.cues.append(dict(kin="query", q=dict(r="tels", pre=nodeSaid)))
+        #             raise kering.MissingChainError("Failure to verify credential {} chain {}({})}"
+        #                                            .format(creder.said, label, nodeSaid))
+        #         elif state.ked["et"] in (coring.Ilks.rev, coring.Ilks.brv):
+        #             raise kering.RevokedChainError("Failure to verify credential {} chain {}({})"
+        #                                            .format(creder.said, label, nodeSaid))
+        #         else:  # VcStatus == VcStates.Issued
+        #             logger.info("Successfully validated credential chain {} for credential {}"
+        #                         .format(label, creder.said))
+
+        # self.saveCredential(creder, sadsigers, sadcigars)
+        # msg = signing.provision(creder, sadsigers=sadsigers, sadcigars=sadcigars)
+        # self.cues.append(dict(kin="saved", creder=creder, msg=msg))
+
+    
 
 class PresentationEnd(doing.DoDoer):
     """
@@ -3337,12 +3621,7 @@ class SignerEnd:
                            properties:                              
                               prefix:
                                  description: qualified base64 identifier prefix
-                                 type: string                             
-                              public_keys:
-                                 description: list of current public keys
-                                 type: array
-                                 items:
-                                    type: string
+                                 type: string
                               signatures:
                                  description: list of signatures
                                  type: array
@@ -3351,7 +3630,7 @@ class SignerEnd:
         """
         hab = self.hby.habByName(alias)        
         if hab is None:
-            rep.status = falcon.HTTP_400
+            rep.status = falcon.HTTP_404
             rep.text = f"alias {alias} is not a valid reference to an identfier"
             return
 
@@ -3367,7 +3646,6 @@ class SignerEnd:
                               indexed=True)        
         res = dict(
             prefix=hab.pre,
-            public_keys=[verfer.qb64 for verfer in hab.kever.verfers],            
             signatures=[sig.qb64 for sig in sigers]
         )
         
@@ -3418,7 +3696,7 @@ class VerifierEnd:
                         data:
                           type: string
                           description: Original signed text
-                        prefix:
+                        signer_prefix:
                           type: string
                           description: Identifier prefix of the signer
                         signatures:
@@ -3433,7 +3711,7 @@ class VerifierEnd:
         
         hab = self.hby.habByName(alias)
         if hab is None:
-            rep.status = falcon.HTTP_400
+            rep.status = falcon.HTTP_404
             rep.text = f"alias {alias} is not a valid reference to an identfier"
             return
 
@@ -3442,20 +3720,26 @@ class VerifierEnd:
             rep.status = falcon.HTTP_400
             rep.text = "verification requires original signed data"
             return
-        if "prefix" not in body:
+        if "signer_prefix" not in body:
             rep.status = falcon.HTTP_400
             rep.text = "requires signer prefix"
             return        
         if "signatures" not in body:
             rep.status = falcon.HTTP_400
             rep.text = "requires signature(s) for verification"
-            return
+            return        
         
+        signerPrefix = body["signer_prefix"]
+
+        if signerPrefix not in hab.kevers:
+            rep.status = falcon.HTTP_404
+            rep.text = f"no information found for identifier {signerPrefix}"
+            return
+
         data = body["data"]
         signatures = body["signatures"]
-        prefix = body["prefix"]
 
-        kever = hab.kevers[prefix]
+        kever = hab.kevers[signerPrefix]
         sigers = [coring.Siger(qb64=sig) for sig in signatures]
         
         ser = data.encode("utf-8")
@@ -3554,6 +3838,7 @@ def loadEnds(app, *,
     app.add_route("/credentials/{alias}/{said}", credsEnd, suffix="export")
     app.add_route("/groups/{alias}/credentials", credsEnd, suffix="iss")
     app.add_route("/groups/{alias}/credentials/{said}/rev", credsEnd, suffix="rev")
+    app.add_route("/credentials/{alias}/verify", credsEnd, suffix="verify")
 
     presentationEnd = PresentationEnd(hby=hby, reger=rgy.reger)
     app.add_route("/credentials/{alias}/presentations", presentationEnd, suffix="present")
@@ -3775,3 +4060,5 @@ def loadEvent(db, preb, dig):
 
     event["timestamp"] = coring.Dater(dts=bytes(dts)).dts
     return event
+
+
