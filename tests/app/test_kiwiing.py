@@ -1478,3 +1478,90 @@ def test_presentation_ends(seeder, mockCoringRandomNonce):
         response = client.simulate_post("/credentials/pal/requests", body=raw)
         assert response.status == falcon.HTTP_400
         assert response.text == "schema is required, none provided"
+
+def test_signer_ends():
+    with habbing.openHab(name="test", transferable=True, temp=True) as (hby, hab):
+        assert hab.pre == "ECtWlHS2Wbx5M2Rg6nm69PCtzwb1veiRNvDpBGF9Z1Pc"
+
+        app = falcon.App()
+
+        regery = credentialing.Regery(hby=hby, name=hab.name, temp=True)
+        notifier = notifying.Notifier(hby=hby)        
+
+        _ = kiwiing.loadEnds(hby=hby,
+                             rep=None,
+                             rgy=regery,
+                             verifier=None,
+                             notifier=notifier,
+                             signaler=notifier.signaler,
+                             registrar=None,
+                             credentialer=None,
+                             servery=booting.Servery(port=1234),
+                             bootConfig=dict(),
+                             app=app, path="/",
+                             counselor=None)
+        client = testing.TestClient(app)
+
+        
+
+        # POST to an identifier alias that does not exists
+        result = client.simulate_post(path=f"/sign/test101")
+        assert result.status == falcon.HTTP_404
+
+        # POST without an data for signing
+        payload = dict()
+        b = json.dumps(payload).encode("utf-8")
+        result = client.simulate_post(path=f"/sign/test", body=b)
+        assert result.status == falcon.HTTP_400
+
+        payload = dict(data="testing signing endpoint")
+        b = json.dumps(payload).encode("utf-8")
+        response = client.simulate_post(f"/sign/{hab.name}", body=b)
+        assert response.status == falcon.HTTP_200
+        assert result.json["prefix"] == "ECtWlHS2Wbx5M2Rg6nm69PCtzwb1veiRNvDpBGF9Z1Pc"
+        signatures = result.json["signatures"]
+        assert len(signatures) == 1
+        # assert signatures == ['']
+
+def test_verifier_ends():
+    with habbing.openHab(name="test", transferable=True) as (hby, hab), \
+            habbing.openHab(name="recp", transferable=True) as (recpHby, recp):    
+        assert hab.pre == "ECtWlHS2Wbx5M2Rg6nm69PCtzwb1veiRNvDpBGF9Z1Pc"
+
+        app = falcon.App()
+
+        regery = credentialing.Regery(hby=hby, name=hab.name, temp=True)
+        notifier = notifying.Notifier(hby=hby)        
+
+        _ = kiwiing.loadEnds(hby=hby,
+                             rep=None,
+                             rgy=regery,
+                             verifier=None,
+                             notifier=notifier,
+                             signaler=notifier.signaler,
+                             registrar=None,
+                             credentialer=None,
+                             servery=booting.Servery(port=1234),
+                             bootConfig=dict(),
+                             app=app, path="/",
+                             counselor=None)
+        client = testing.TestClient(app)        
+
+        # # POST to an identifier alias that does not exists
+        # result = client.simulate_post(path=f"/sign/test101")
+        # assert result.status == falcon.HTTP_404
+
+        # # POST without an data for signing
+        # payload = dict()
+        # b = json.dumps(payload).encode("utf-8")
+        # result = client.simulate_post(path=f"/sign/test", body=b)
+        # assert result.status == falcon.HTTP_400
+
+        # payload = dict(data="testing signing endpoint")
+        # b = json.dumps(payload).encode("utf-8")
+        # response = client.simulate_post(f"/sign/{hab.name}", body=b)
+        # assert response.status == falcon.HTTP_200
+        # assert result.json["prefix"] == "ECtWlHS2Wbx5M2Rg6nm69PCtzwb1veiRNvDpBGF9Z1Pc"
+        # signatures = result.json["signatures"]
+        # assert len(signatures) == 1
+        # # assert signatures == ['']
