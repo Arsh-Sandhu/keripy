@@ -25,6 +25,7 @@ from ..db.dbing import dgKey
 from ..peer import exchanging
 from ..vc import proving, protocoling, walleting
 from ..vdr import verifying, credentialing
+import blake3
 
 logger = help.ogler.getLogger()
 
@@ -3751,6 +3752,191 @@ class AeidEnd:
         rep.status = falcon.HTTP_202
 
 
+class DigerEnd:
+     """ Resource for Diger Endpoints """
+
+     def __init__(self, hby):
+         """ Initialize Diger Endpoint
+
+         Parameters:
+             hby (Habery): identifier database and keystore environment            
+
+         """
+         self.hby = hby        
+
+     def on_post(self, req, rep, alias):
+         """ Diger POST endpoint
+
+         Parameters:
+             req: falcon.Request HTTP request
+             rep: falcon.Response HTTP response
+             alias: human readable name of identifier to use to sign data
+
+         ---
+         summary:  calculate digest of each element in list 
+         description: calculate digest of each element in list and set digest in d property
+         tags:
+            - diger
+         parameters:
+           - in: path
+             name: alias
+             schema:
+               type: string
+             required: true
+             description: Human readable alias for the identifier
+         requestBody:
+           required: true
+           content:
+             application/json:
+               schema:
+                 type: object
+                 properties:
+                   wits:
+                     type: array
+                     items:
+                        type: string
+                     description: human readable alias for the new identfier
+         responses:
+            200:
+               description: identifier information                           
+         """
+         hab = self.hby.habByName(alias)        
+         if hab is None:
+             rep.status = falcon.HTTP_400
+             rep.text = f"alias {alias} is not a valid reference to an identfier"
+             return
+
+         body = req.get_media()
+         data = None
+         
+         if "data" not in body:
+             rep.status = falcon.HTTP_400
+             rep.text = "'data' is required"
+             return
+
+         try:
+            #  # remove whitespace
+             val = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
+             data = json.loads(val)
+         except json.JSONDecodeError:
+             rep.status = falcon.HTTP_400
+             rep.text = "data supplied must be value JSON"
+             return
+         except (ValueError, TypeError, Exception) as e:
+             rep.status = falcon.HTTP_400
+             rep.text = e.args[0]
+             return
+         
+         values = []
+         for item in data["data"]:
+            itemString = json.dumps(item, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            # print("---------> " + json.dumps(item))
+            # print("---------> " +  json.dumps(itemString))
+            raw = blake3.blake3(itemString).digest()
+            diger = coring.Diger(raw=raw)            
+            item['d'] = diger.qb64           
+      
+            values.append(item)
+
+         rep.status = falcon.HTTP_200
+         rep.content_type = "application/json"
+         rep.data = json.dumps(values).encode("utf-8")
+
+
+class SaiderEnd:
+     """ Resource for Saider Endpoints """
+
+     def __init__(self, hby):
+         """ Initialize Saider Endpoint
+
+         Parameters:
+             hby (Habery): identifier database and keystore environment            
+
+         """
+         self.hby = hby        
+
+     def on_post(self, req, rep, alias):
+         """ Saider POST endpoint
+
+         Parameters:
+             req: falcon.Request HTTP request
+             rep: falcon.Response HTTP response
+             alias: human readable name of identifier to use to sign data
+
+         ---
+         summary:  Saidify the provided SAD
+         description: Saidify the provided SAD and set SAID in d property
+         tags:
+            - said
+         parameters:
+           - in: path
+             name: alias
+             schema:
+               type: string
+             required: true
+             description: Human readable alias for the identifier         
+         requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    label:
+                      type: string
+                      description: Field label to SAID-ify                    
+                    sad:
+                      type: object
+                      description: SAD or self addressed data to serialize and inject said
+                      properties:
+                         d:
+                            type: string
+                            description: SAID of reference chain                    
+         responses:
+            200:
+               description: identifier information                           
+         """
+         hab = self.hby.habByName(alias)        
+         if hab is None:
+             rep.status = falcon.HTTP_400
+             rep.text = f"alias {alias} is not a valid reference to an identfier"
+             return
+
+         body = req.get_media()
+         data = None
+         
+         if "sad" not in body:
+             rep.status = falcon.HTTP_400
+             rep.text = "SAD or self addressed data is required"
+             return
+         if "label" not in body:
+             rep.status = falcon.HTTP_400
+             rep.text = "Field label required to SAID-ify"
+             return
+
+         try:
+            #  # remove whitespace
+             val = json.dumps(body, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+             data = json.loads(val)
+         except json.JSONDecodeError:
+             rep.status = falcon.HTTP_400
+             rep.text = "data supplied must be value JSON"
+             return
+         except (ValueError, TypeError, Exception) as e:
+             rep.status = falcon.HTTP_400
+             rep.text = e.args[0]
+             return
+         
+         
+         _, result = coring.Saider.saidify(sad=data["sad"], label=data["label"])         
+
+         rep.status = falcon.HTTP_200
+         rep.content_type = "application/json"
+         rep.data = json.dumps(result).encode("utf-8")
+
+
+
+
 def loadEnds(app, *,
              path,
              hby,
@@ -3856,6 +4042,12 @@ def loadEnds(app, *,
 
     aeidEnd = AeidEnd(hby=hby)
     app.add_route("/codes", aeidEnd)
+
+    digerEnd = DigerEnd(hby=hby)
+    app.add_route("/diger/{alias}", digerEnd)
+
+    saiderEnd = SaiderEnd(hby=hby)
+    app.add_route("/said/{alias}", saiderEnd)
 
     signalEnd = signaling.loadEnds(app, signals=signaler.signals)
     resources = [identifierEnd, MultisigInceptEnd, registryEnd, oobiEnd, credsEnd, keyEnd, signalEnd,
