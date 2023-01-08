@@ -69,6 +69,7 @@ class Counselor(doing.DoDoer):
         print(f"Waiting for other signatures for {seqner.sn}...")
         return self.hby.db.gpse.add(keys=(prefixer.qb64,), val=(seqner, saider))
 
+
     def rotate(self, ghab, smids, *, rmids=None, isith=None, nsith=None,
                toad=None, cuts=None, adds=None, data=None):
         """ Begin processing of escrowed group multisig identifier
@@ -108,21 +109,21 @@ class Counselor(doing.DoDoer):
 
         # Get local next key and see if we are in current group next keys
         pkever = ghab.mhab.kever
-        pnkey = pkever.nexter.digs[0]
+        pndig = pkever.digers[0].qb64
 
         rec = basing.RotateRecord(sn=kever.sn+1, isith=isith, nsith=nsith,
                                   toad=toad, cuts=cuts, adds=adds,
                                   data=data, date=helping.nowIso8601(),
                                   smids=smids, rmids=rmids)
 
-        if pnkey in kever.nexter.digs:  # local already participate in last event, rotate
+        if pndig in kever.digs:  # local already participate in last event, rotate
             ghab.mhab.rotate()
             print(f"Rotating local identifier, waiting for witness receipts")
             self.witDoer.msgs.append(dict(pre=ghab.mhab.pre, sn=ghab.mhab.kever.sn))
             return self.hby.db.glwe.put(keys=(ghab.pre,), val=rec)
 
-        else:
-            rot = ghab.mhab.makeOwnEvent(pkever.lastEst.sn)  # grab latest est evt
+        else: # XXXX no unit test ever reaches here
+            rot = ghab.mhab.makeOwnEvent(pkever.lastEst.s)  # grab latest est evt
             others = list(both)
             others.remove(mid)
             serder = coring.Serder(raw=rot)
@@ -252,21 +253,25 @@ class Counselor(doing.DoDoer):
 
             merfers = []  # local verfers of group signing keys
             indices = []  # weights of the local signers who have already rotated
-            migers = list(gkever.nexter.digers)  # local participants next digers
+            migers = list(gkever.digers)  # local participants next digers
             for aid in rec.smids:
                 pkever = self.hby.kevers[aid]
                 idx = ghab.smids.index(aid)
-                if pkever.nexter.digs[0] != gkever.nexter.digs[idx]:
+                if pkever.digers[0].qb64 != gkever.digers[idx].qb64:
                     indices.append(idx)
                     merfers.append(pkever.verfers[0])
-                    migers[idx] = pkever.nexter.digers[0]
-                else:
-                    break
+                    migers[idx] = pkever.digers[0]
 
-            if not gkever.tholder.satisfy(indices):
+            if not gkever.ntholder.satisfy(indices):
                 continue
 
-            rot = ghab.rotate(isith=rec.isith, nsith=rec.nsith,
+            if gkever.tholder.weighted and rec.isith is None:
+                isith = [gkever.ntholder.sith[idx] for idx in indices]
+            else:
+                isith = rec.isith
+
+            nsith = rec.nsith if rec.nsith is not None else gkever.ntholder.sith
+            rot = ghab.rotate(isith=isith, nsith=nsith,
                               toad=rec.toad, cuts=rec.cuts, adds=rec.adds, data=rec.data,
                               merfers=merfers, migers=migers)
             serder = coring.Serder(raw=rot)
@@ -299,11 +304,19 @@ class Counselor(doing.DoDoer):
                 ghab = self.hby.habs[pre]
                 kever = ghab.kever
                 keys = [verfer.qb64 for verfer in kever.verfers]
-                witer = ghab.mhab.kever.verfers[0].qb64 == keys[0]  # Elected to perform delegation and witnessing
+                sigs = self.hby.db.getSigs(dbing.dgKey(pre, bytes(sdig)))
+                if not sigs:  # otherwise its a list of sigs
+                    continue
+
+                sigers = [coring.Siger(qb64b=bytes(sig)) for sig in sigs]
+                windex = min([siger.index for siger in sigers])
+
+                # True if Elected to perform delegation and witnessing
+                witered = ghab.mhab.kever.verfers[0].qb64 == keys[windex]
 
                 if kever.delegated and kever.ilk in (coring.Ilks.dip, coring.Ilks.drt):
                     # We are a delegated identifier, must wait for delegator approval for dip and drt
-                    if witer:  # We are elected to perform delegation and witnessing messaging
+                    if witered:  # We are elected to perform delegation and witnessing messaging
                         print(f"We are the witnesser, sending {pre} to delegator")
                         self.swain.msgs.append(dict(pre=pre, sn=seqner.sn))
                     else:
@@ -313,7 +326,7 @@ class Counselor(doing.DoDoer):
                     print("Waiting for delegation approval...")
                     self.hby.db.gdee.add(keys=(pre,), val=(seqner, saider))
                 else:  # Non-delegation, move on to witnessing
-                    if witer:  # We are elected witnesser, send off event to witnesses
+                    if witered:  # We are elected witnesser, send off event to witnesses
                         print(f"We are the fully signed witnesser {seqner.sn}, sending to witnesses")
                         self.witDoer.msgs.append(dict(pre=pre, sn=seqner.sn))
 

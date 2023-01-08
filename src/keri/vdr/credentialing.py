@@ -343,7 +343,7 @@ class Registry:
         """  Create key event with seal to serder anchored as data.
 
         Performs a rotation or interaction event for single sig or multiple sig identifier
-        to anchor the provide regsitry event.  Inserts outbound cues for external processing
+        to anchor the provide registry event.  Inserts outbound cues for external processing
         of resulting events or multisig handling.
 
         Parameters:
@@ -813,6 +813,12 @@ class Credentialer(doing.DoDoer):
                 else:
                     sender = issr
 
+                ikever = self.hby.db.kevers[issr]
+                for msg in self.hby.db.cloneDelegation(ikever):
+                    serder = coring.Serder(raw=msg)
+                    atc = msg[serder.size:]
+                    self.postman.send(src=sender, dest=recp, topic="credential", serder=serder, attachment=atc)
+
                 for msg in self.hby.db.clonePreIter(pre=issr):
                     serder = coring.Serder(raw=msg)
                     atc = msg[serder.size:]
@@ -835,6 +841,12 @@ class Credentialer(doing.DoDoer):
                     vci = source.said
 
                     issr = source.crd["i"]
+                    ikever = self.hby.db.kevers[issr]
+                    for msg in self.hby.db.cloneDelegation(ikever):
+                        serder = coring.Serder(raw=msg)
+                        atc = msg[serder.size:]
+                        self.postman.send(src=sender, dest=recp, topic="credential", serder=serder, attachment=atc)
+
                     for msg in self.hby.db.clonePreIter(pre=issr):
                         serder = coring.Serder(raw=msg)
                         atc = msg[serder.size:]
@@ -988,12 +1000,24 @@ def sendArtifacts(hby, reger, postman, creder, sender, recp):
     isse = creder.subject["i"] if "i" in creder.subject else None
     regk = creder.status
 
+    ikever = hby.db.kevers[issr]
+    for msg in hby.db.cloneDelegation(ikever):
+        serder = coring.Serder(raw=msg)
+        atc = msg[serder.size:]
+        postman.send(src=sender, dest=recp, topic="credential", serder=serder, attachment=atc)
+
     for msg in hby.db.clonePreIter(pre=issr):
         serder = coring.Serder(raw=msg)
         atc = msg[serder.size:]
         postman.send(src=sender, dest=recp, topic="credential", serder=serder, attachment=atc)
 
     if isse != recp:
+        ikever = hby.db.kevers[isse]
+        for msg in hby.db.cloneDelegation(ikever):
+            serder = coring.Serder(raw=msg)
+            atc = msg[serder.size:]
+            postman.send(src=sender, dest=recp, topic="credential", serder=serder, attachment=atc)
+
         for msg in hby.db.clonePreIter(pre=isse):
             serder = coring.Serder(raw=msg)
             atc = msg[serder.size:]

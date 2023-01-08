@@ -2873,174 +2873,6 @@ class Diger(Matter):
         return (hashlib.sha256(ser).digest() == raw)
 
 
-class Nexter:
-    """
-    Nexter class manages list of next digests of keys for key events
-
-
-    Attributes:
-
-    Properties:
-        digers (list[Diger]): instances of next Digers
-        digs (list[str]): next key digs from .digers qb64
-
-    Methods:
-
-    Hidden:
-        ._digest is derive digests from keys
-
-
-    """
-
-    def __init__(self, digers=None, digs=None, verfers=None, keys=None):
-        """ Initialize next digests for next key commitment
-
-        Parameters:
-           digers (list | None): of Diger instances of digests of public keys
-           digs (list | None): of qb64 digests of public keys
-           verfers (list | None): of Verfer instances of public keys
-           keys (list | None): of qb64 public keys from which digests are generated
-
-
-        """
-        if digers is None:
-            if digs is not None:
-                digers = [Diger(qb64=dig) for dig in digs]
-            else:
-                if verfers is None:
-                    if not keys:
-                        raise EmptyListError(f"Need digers, digs, verfers, or keys.")
-                    verfers = [Verfer(qb64=key) for key in keys]
-                digers = [Diger(ser=verfer.qb64b) for verfer in verfers]
-
-        for diger in digers:
-            if not isinstance(diger, Diger):
-                raise InvalidTypeError("Not a Diger: {diger}.")
-
-        self._digers = digers
-
-
-    @property
-    def digers(self):
-        """digers propert getter
-        Returns:
-            (list): Diger instances
-        """
-        return self._digers
-
-
-    @property
-    def digs(self):
-        """Returns ._digs, digs property getter.
-        Makes .digs read only
-        """
-        return [diger.qb64 for diger in self.digers]
-
-
-    def indices(self, sigers):
-        """Returns list of indices for list of sigers by verifying the public key
-        for each siger.verfer.qb64b when digested by the digest algoritm of the
-        associated indexed diger in .digers is a match.
-        """
-        idxs = []
-        for sig in sigers:
-            pass
-
-        return idxs
-
-
-    def satisfies(self, tholder, indices, digers=None,  digs=None):
-        """Given prior next digest list in .digers the provided tholder,
-        and ondices with either provided digers or digs together constitute a
-        satisfycing subset of the prior next threshold. Each ondice indicates
-        which index offset into .digers is the corresponding diger or dig.
-
-        Returns:
-            (bool): True if satisfycing, False otherwise
-
-        Parameters:
-            tholder (Tholder): instance of prior next threshold
-            indices (list): of int offsets into .digers
-            digers (list | None): of instances of Diger of prior next key digests
-            digs (list | None): of digests qb64 of prior next keys
-
-        """
-        if digers is None:
-            if digs is None:
-                raise EmptyListError(f"Need digers, digs, verfers, or keys.")
-            digers = [Diger(qb64=dig) for dig in digs]
-
-
-
-        return False
-
-
-    @staticmethod
-    def _digest(keys):
-        """
-        Returns digs of keys
-
-        Parameters:
-            keys (list): public keys qb64 or qb64b
-        """
-        digs = [Diger(ser=key.encode("utf-8")
-                      if hasattr(key, 'encode') else key).qb64 for key in keys]
-
-        return digs
-
-
-    def includes(self, digs=None, keys=None):
-        """
-        Returns True if digs or digs from keys are included
-        as a ordered (potentially non-contiguous) subset  of .digs.
-        Each element in the provided list digs must appear in .digs in the same
-        order that it appears in digs but not all elements in .digs must appear
-        in digs.
-
-        Parameters:
-            digs (list): digests qb64
-            keys (list): public keys qb64
-        """
-        if not digs:
-            digs = self._digest(keys=keys)
-
-        if len(digs) == len(self.digs):
-            return self.digs == digs
-
-        elif len(digs) < len(self.digs):
-            existing = list(self.digs)
-            found = []
-            for kdig in digs:
-                while existing:
-                    ndig = existing.pop(0)
-                    if kdig == ndig:
-                        found.append(kdig)
-                        break
-
-                if not existing:
-                    break
-
-            return digs == found
-
-        else:
-            return False
-
-
-    def matches(self, sigers):
-        """Returns list of indices for list of sigers by matching digest of
-        each siger.verfer qb64 public key to element of .digs
-        """
-        idxs = []
-        for sig in sigers:
-            idig = Diger(ser=sig.verfer.qb64b).qb64
-            try:
-                idxs.append(self.digs.index(idig))
-            except ValueError as ex:
-                raise ValidationError(f'indices into verfer unable to locate "'
-                                      f'"{idig} in {self.digs}') from ex
-
-        return idxs
-
 
 
 class Prefixer(Matter):
@@ -4322,10 +4154,54 @@ class Siger(Indexer):
         self._verfer = verfer
 
 
+@dataclass(frozen=True)
+class CounterCodex:
+    """
+    CounterCodex is codex hard (stable) part of all counter derivation codes.
+    Only provide defined codes.
+    Undefined are left out so that inclusion(exclusion) via 'in' operator works.
+    """
+
+    ControllerIdxSigs: str = '-A'  # Qualified Base64 Indexed Signature.
+    WitnessIdxSigs: str = '-B'  # Qualified Base64 Indexed Signature.
+    NonTransReceiptCouples: str = '-C'  # Composed Base64 Couple, pre+cig.
+    TransReceiptQuadruples: str = '-D'  # Composed Base64 Quadruple, pre+snu+dig+sig.
+    FirstSeenReplayCouples: str = '-E'  # Composed Base64 Couple, fnu+dts.
+    TransIdxSigGroups: str = '-F'  # Composed Base64 Group, pre+snu+dig+ControllerIdxSigs group.
+    SealSourceCouples: str = '-G'  # Composed Base64 couple, snu+dig of given delegators or issuers event
+    TransLastIdxSigGroups: str = '-H'  # Composed Base64 Group, pre+ControllerIdxSigs group.
+    SealSourceTriples: str = '-I'  # Composed Base64 triple, pre+snu+dig of anchoring source event
+    SadPathSig: str = '-J'  # Composed Base64 Group path+TransIdxSigGroup of SAID of content
+    SadPathSigGroup: str = '-K'  # Composed Base64 Group, root(path)+SaidPathCouples
+    PathedMaterialQuadlets: str = '-L'  # Composed Grouped Pathed Material Quadlet (4 char each)
+    AttachedMaterialQuadlets: str = '-V'  # Composed Grouped Attached Material Quadlet (4 char each)
+    BigAttachedMaterialQuadlets: str = '-0V'  # Composed Grouped Attached Material Quadlet (4 char each)
+    KERIProtocolStack: str = '--AAA'  # KERI ACDC Protocol Stack CESR Version
+
+    def __iter__(self):
+        return iter(astuple(self))  # enables inclusion test with "in"
+
+CtrDex = CounterCodex()
 
 
 @dataclass(frozen=True)
-class CounterCodex:
+class ProtocolGenusCodex:
+    """ProtocolGenusCodex is codex of protocol genera.
+
+    Only provide defined codes.
+    Undefined are left out so that inclusion(exclusion) via 'in' operator works.
+    """
+    KERI: str = '--AAA'  # KERI ACDC Protocol Stack
+
+
+    def __iter__(self):
+        return iter(astuple(self))
+
+ProDex = ProtocolGenusCodex()  # Make instance
+
+
+@dataclass(frozen=True)
+class AltCounterCodex:
     """
     CounterCodex is codex hard (stable) part of all counter derivation codes.
     Only provide defined codes.
@@ -4357,11 +4233,9 @@ class CounterCodex:
     BigMaterialGroups: str = '-0Y'  # Composed Generic Material Group or Primitive
     BigMaterialQuadlets: str = '-0Z'  # Composed Generic Material Quadlet (4 char each)
 
+
     def __iter__(self):
         return iter(astuple(self))  # enables inclusion test with "in"
-
-
-CtrDex = CounterCodex()
 
 
 class Counter:
@@ -4400,6 +4274,7 @@ class Counter:
     Hards = ({('-' + chr(c)): 2 for c in range(65, 65 + 26)})
     Hards.update({('-' + chr(c)): 2 for c in range(97, 97 + 26)})
     Hards.update([('-0', 3)])
+    Hards.update([('--', 5)])
     # Sizes table maps hs chars of code to Sizage namedtuple of (hs, ss, fs)
     # where hs is hard size, ss is soft size, and fs is full size
     # soft size, ss, should always be  > 0 and hs+ss=fs for Counter
@@ -4416,46 +4291,36 @@ class Counter:
         '-J': Sizage(hs=2, ss=2, fs=4, ls=0),
         '-K': Sizage(hs=2, ss=2, fs=4, ls=0),
         '-L': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-U': Sizage(hs=2, ss=2, fs=4, ls=0),
         '-V': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-W': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-X': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-Y': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-Z': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-a': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-c': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-d': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-e': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-k': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-l': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-r': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-w': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-0U': Sizage(hs=3, ss=5, fs=8, ls=0),
         '-0V': Sizage(hs=3, ss=5, fs=8, ls=0),
-        '-0W': Sizage(hs=3, ss=5, fs=8, ls=0),
-        '-0X': Sizage(hs=3, ss=5, fs=8, ls=0),
-        '-0Y': Sizage(hs=3, ss=5, fs=8, ls=0),
-        '-0Z': Sizage(hs=3, ss=5, fs=8, ls=0)
+        '--AAA': Sizage(hs=5, ss=3, fs=8, ls=0),
     }
     # Bards table maps to hard size, hs, of code from bytes holding sextets
     # converted from first two code char. Used for ._bexfil.
     Bards = ({codeB64ToB2(c): hs for c, hs in Hards.items()})
 
-    def __init__(self, code=None, count=1, qb64b=None, qb64=None,
-                 qb2=None, strip=False):
+    def __init__(self, code=None, count=None, countB64=None,
+                 qb64b=None, qb64=None, qb2=None, strip=False):
         """
         Validate as fully qualified
         Parameters:
-            code is str of stable (hard) part of derivation code
-            count is int count for following group of items (primitives or groups)
-            qb64b is bytes of fully qualified crypto material
-            qb64 is str or bytes  of fully qualified crypto material
-            qb2 is bytes of fully qualified crypto material
-            strip is Boolean True means strip counter contents from input stream
-                bytearray after parsing qb64b or qb2. False means do not strip
+            code (str | None):  stable (hard) part of derivation code
+            count (int | None): count for composition.
+                Count may represent quadlets/triplet, groups, primitives or
+                other numericy
+                When both count and countB64 are None then count defaults to 1
+            countB64 (str | None): count for composition as Base64
+                countB64 may represent quadlets/triplet, groups, primitives or
+                other numericy
+            qb64b (bytes | bytearray | None): fully qualified crypto material text domain
+            qb64 (str | None) fully qualified crypto material text domain
+            qb2 (bytes | bytearray | None)  fully qualified crypto material binary domain
+            strip (bool):  True means strip counter contents from input stream
+                bytearray after parsing qb64b or qb2. False means do not strip.
+                default False
 
 
-        Needs either (code and count) or qb64b or qb64 or qb2
+        Needs either code or qb64b or qb64 or qb2
         Otherwise raises EmptyMaterialError
         When code and count provided then validate that code and count are correct
         Else when qb64b or qb64 or qb2 provided extract and assign
@@ -4471,6 +4336,9 @@ class Counter:
             if fs != cs or cs % 4:  # fs must be bs and multiple of 4 for count codes
                 raise InvalidCodeSizeError("Whole code size not full size or not "
                                            "multiple of 4. cs={} fs={}.".format(cs, fs))
+
+            if count is None:
+                count = 1 if countB64 is None else b64ToInt(countB64)
 
             if count < 0 or count > (64 ** ss - 1):
                 raise InvalidVarIndexError("Invalid count={} for code={}.".format(count, code))
@@ -4504,6 +4372,7 @@ class Counter:
         """
         return self._code
 
+
     @property
     def count(self):
         """
@@ -4511,6 +4380,7 @@ class Counter:
         Makes ._count read only
         """
         return self._count
+
 
     @property
     def qb64b(self):
@@ -4521,6 +4391,7 @@ class Counter:
         """
         return self._infil()
 
+
     @property
     def qb64(self):
         """
@@ -4530,6 +4401,7 @@ class Counter:
         """
         return self.qb64b.decode("utf-8")
 
+
     @property
     def qb2(self):
         """
@@ -4537,6 +4409,55 @@ class Counter:
         Returns Fully Qualified Binary Version Bytes
         """
         return self._binfil()
+
+
+    def countToB64(self, l=None):
+        """ Returns count as Base64 left padded with "A"s
+            Parameters:
+                l (int | None): minimum number characters including left padding
+                    When not provided use the softsize of .code
+
+        """
+        if l is None:
+            _, ss, _, _ = self.Sizes[self.code]
+            l = ss
+        return (intToB64(self.count, l=l))
+
+
+    @staticmethod
+    def semVerToB64(version="", major=0, minor=0, patch=0):
+        """ Converts semantic version to Base64 representation of countB64
+        suitable for CESR protocol genus and version
+
+        Returns:
+            countB64 (str): suitable for input to Counter
+            example: Counter(countB64=semVerToB64(version = "1.0.0"))
+
+        Parameters:
+            version (str | None): dot separated semantic version string of format
+                "major.minor.patch"
+            major (int): When version is None or empty then use major,minor, patch
+            minor (int): When version is None or empty then use major,minor, patch
+            patch (int): When version is None or empty then use major,minor, patch
+
+        each of major, minor, patch must be in range [0,63] for represenation as
+        three Base64 characters
+
+        """
+        parts = [major, minor, patch]
+        if version:
+            splits = version.split(".", maxsplit=3)
+            splits = [(int(s) if s else 0) for s in splits]
+            for i in range(3-len(splits),0, -1):
+                splits.append(parts[-i])
+            parts = splits
+
+        for p in parts:
+            if p < 0 or p > 63:
+                raise ValueError(f"Out of bounds semantic version. "
+                                 f"Part={p} is < 0 or > 63.")
+        return ("".join(intToB64(p, l=1) for p in parts))
+
 
     def _infil(self):
         """
@@ -4716,7 +4637,7 @@ class Sadder:
         """
         Deserialize if raw provided
         Serialize if ked provided but not raw
-        When serilaizing if kind provided then use kind instead of field in ked
+        When serializing if kind provided then use kind instead of field in ked
 
         Parameters:
           raw is bytes of serialized event plus any attached signatures
@@ -4936,12 +4857,19 @@ class Serder(Sadder):
 
     Has the following public properties:
 
+    Inherited Properties:
+        raw (bytes): of serialized event only
+        ked (dict): self addressed data dict
+        kind (str): serialization kind coring.Serials such as JSON, CBOR, MGPK, CESR
+        size (int): number of bytes in serialization
+        version (Versionage): protocol version (Major, Minor)
+        ident (Identage): protocol identifier such as KERI, ACDC
+        saider (Saider): of SAID of this SAD .ked['d'] if present
+        said (str): SAID of .saider qb64
+        saidb (bytes): SAID of .saider  qb64b
+        pretty (str): Pretty JSON of this SAD
+
     Properties:
-        .raw is bytes of serialized event only
-        .ked is key event dict
-        .kind is serialization kind string value (see namedtuple coring.Serials)
-        .version is Versionage instance of event version
-        .size is int of number of bytes in serialed event only
         .diger is Diger instance of digest of .raw
         .dig  is qb64 digest from .diger
         .digb is qb64b digest from .diger
@@ -4951,10 +4879,12 @@ class Serder(Sadder):
         .ntholder is Tholder instance from .ked["nt'] else None
         sner (Number): instance converted from sequence number .ked["s"] hex str
         sn (int): sequence number converted from .ked["s"]
+        fner (Number): instance converted from first seen ordinal number
+            .ked["f"] hex str if any otherwise None
+        fn (int): first seen ordinal number converted from .ked["f"] if any
+            otherwise None
         .pre is qb64 str of identifier prefix from .ked["i"]
         .preb is qb64b bytes of identifier prefix from .ked["i"]
-        .said is qb64 of .ked['d'] if present
-        .saidb is qb64b of .ked['d'] of present
 
     Hidden Attributes:
           ._raw is bytes of serialized event only
@@ -4975,7 +4905,7 @@ class Serder(Sadder):
         """
         Deserialize if raw provided
         Serialize if ked provided but not raw
-        When serilaizing if kind provided then use kind instead of field in ked
+        When serializing if kind provided then use kind instead of field in ked
 
         Parameters:
           raw is bytes of serialized event plus any attached signatures
@@ -5009,18 +4939,32 @@ class Serder(Sadder):
         return [Verfer(qb64=key) for key in keys]
 
     @property
-    def nexter(self):
+    def digers(self):
         """
         Returns list of Diger instances as converted from .ked['n'].
-        One for each key.
-        nexter property getter
+        One for each next key digests.
+        digers property getter
         """
         if "n" in self.ked:  # establishment event
             digs = self.ked["n"]
         else:  # non-establishment event
             digs = []
 
-        return Nexter(digs=digs)
+        return [Diger(qb64=dig) for dig in digs]
+
+    #@property
+    #def nexter(self):
+        #"""
+        #Returns list of Diger instances as converted from .ked['n'].
+        #One for each key.
+        #nexter property getter
+        #"""
+        #if "n" in self.ked:  # establishment event
+            #digs = self.ked["n"]
+        #else:  # non-establishment event
+            #digs = []
+
+        #return Nexter(digs=digs)
 
     @property
     def werfers(self):
@@ -5070,6 +5014,27 @@ class Serder(Sadder):
             sn (int): of .sner.num from .ked["s"]
         """
         return (self.sner.num)
+
+    @property
+    def fner(self):
+        """
+        fner (Number of first seen ordinal) property getter
+        Returns:
+            (Number): of .ked["f"] hex number str converted
+        """
+        # auto converts hex num str to int
+        return Number(num=self.ked["f"])  if "f" in self.ked else None
+
+
+    @property
+    def fn(self):
+        """
+        fn (first seen ordinal number) property getter
+        Returns:
+            fn (int): of .fner.num from .ked["f"]
+        """
+        return (self.fner.num)
+
 
     @property
     def pre(self):
@@ -5422,17 +5387,6 @@ class Tholder:
             raise ValueError(f"Invalid weight not 0 <= {w} <= 1.")
         return w
 
-    #@staticmethod
-    #def _checkWeight(w: SmallVrzDex) -> Fraction:
-        #"""Returns w if 0 <= w <= 1 and is strict rational fraction expression
-        #or "1" or "0"  Else raises ValueError
-
-        #Parameters:
-            #w (Fraction): Threshold weight Fraction
-        #"""
-        #if not 0 <= w <= 1:
-            #raise ValueError(f"Invalid weight not 0 <= {w} <= 1.")
-        #return w
 
     @staticmethod
     def weight(w: str) -> Fraction:
@@ -5523,6 +5477,102 @@ class Tholder:
             return False
 
         return False
+
+    #def satisfies(self, tholder, indices, digers=None,  digs=None):
+        #"""Given prior next digest list in .digers the provided tholder,
+        #and indices with either provided digers or digs together constitute a
+        #satisfycing subset of the prior next threshold. Each index indicates
+        #which index offset into .digers is the corresponding diger or dig.
+
+        #Returns:
+            #(bool): True if satisfycing, False otherwise
+
+        #Parameters:
+            #tholder (Tholder): instance of prior next threshold
+            #indices (list): of int offsets into .digers
+            #digers (list | None): of instances of Diger of prior next key digests
+            #digs (list | None): of digests qb64 of prior next keys
+
+        #"""
+        #if digers is None:
+            #if digs is None:
+                #raise EmptyListError(f"Need digers, digs, verfers, or keys.")
+            #digers = [Diger(qb64=dig) for dig in digs]
+
+        #return False
+
+
+
+    @staticmethod
+    def _digest(keys):
+        """
+        Returns digs of keys using default digest Blake3
+
+        Parameters:
+            keys (list): public keys qb64 or qb64b
+        """
+        digs = [Diger(ser=key.encode("utf-8")
+                      if hasattr(key, 'encode') else key).qb64 for key in keys]
+
+        return digs
+
+    @staticmethod
+    def includes(keys, digs):
+        """
+        Returns True if list of Blake3 digests of keys are included as an ordered
+        (potentially non-contiguous) subset  of digs.
+        Each dugest of an element in the provided list keys must appear
+        in digs in the same order but not all elements in digs must appear as
+        a digest of of an element of keys, i.e returns True if the list of
+        digests of keys is an ordered subset of digs
+
+        Parameters:
+            keys (list): public keys qb64
+            digs (list): digests qb64  (prior next digs)
+        """
+        kdigs = [Diger(ser=key.encode("utf-8")
+                      if hasattr(key, 'encode') else key).qb64 for key in keys]
+
+        if len(kdigs) == len(digs):
+            return kdigs == digs
+
+        elif len(kdigs) < len(digs):
+            pdigs = list(digs)  # make copy
+            finds = []
+            for kdig in kdigs:
+                while pdigs:
+                    pdig = pdigs.pop(0)
+                    if kdig == pdig:
+                        finds.append(kdig)
+                        break
+
+                if not pdigs:
+                    break
+
+            return kdigs == finds
+
+        else:
+            return False
+
+    @staticmethod
+    def matches(sigers, digs):
+        """Returns list of indices from list of sigers for each matching
+        Blake3 digest of each siger.verfer qb64 public key to an element of digs
+
+        Parameters:
+            sigers (list): of indexed signatures
+            digs (list): digests qb64  (prior next digs)
+        """
+        idxs = []
+        for sig in sigers:
+            idig = Diger(ser=sig.verfer.qb64b).qb64  # default Blake3
+            try:
+                idxs.append(digs.index(idig))
+            except ValueError as ex:
+                raise ValidationError(f'indices into verfer unable to locate "'
+                                      f'"{idig} in {digs}') from ex
+
+        return idxs
 
 
 class Dicter:

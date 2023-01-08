@@ -253,7 +253,7 @@ class IdentifierEnd(doing.DoDoer):
                 isith=kever.tholder.sith,
                 public_keys=[verfer.qb64 for verfer in kever.verfers],
                 nsith=kever.ntholder.sith,
-                next_keys=kever.nexter.digs,
+                next_keys=kever.digs,  # this is misnamed these are not keys but digests of keys
                 toad=kever.toader.num,
                 witnesses=kever.wits,
                 estOnly=kever.estOnly,
@@ -2403,7 +2403,7 @@ class MultisigEventEnd(MultisigEndBase):
         # Create `exn` peer to peer message to notify other participants UI
         exn, atc = grouping.multisigRotateExn(ghab, aids, isith, toad, cuts, adds, data)
         others = list(oset(ghab.smids + (ghab.rmids or [])))
-        #others = list(ghab.smids)
+
         others.remove(ghab.mhab.pre)
 
         for recpt in others:  # send notification to other participants as a signalling mechanism

@@ -26,9 +26,9 @@ from keri.core.coring import Serder, Tholder
 from keri.core.coring import Serialage, Serials, Vstrings
 from keri.core.coring import (Sizage, MtrDex, Matter, Xizage, IdrDex, IdxSigDex,
                               IdxCrtSigDex, IdxBthSigDex, Indexer,
-                              CtrDex, Counter, sniff)
+                              CtrDex, Counter, sniff, ProDex)
 from keri.core.coring import (Verfer, Cigar, Signer, Salter, Saider, DigDex,
-                              Diger, Prefixer, Nexter, Cipher, Encrypter, Decrypter)
+                              Diger, Prefixer, Cipher, Encrypter, Decrypter)
 from keri.core.coring import versify, deversify, Rever, VERFULLSIZE, MINSNIFFSIZE
 from keri.core.coring import generateSigners, generatePrivates
 from keri.core.coring import (intToB64, intToB64b, b64ToInt, codeB64ToB2, codeB2ToB64,
@@ -2197,19 +2197,37 @@ def test_counter():
         'SadPathSig': '-J',
         'SadPathSigGroup': '-K',
         'PathedMaterialQuadlets': '-L',
-        'MessageDataGroups': '-U',
         'AttachedMaterialQuadlets': '-V',
-        'MessageDataMaterialQuadlets': '-W',
-        'CombinedMaterialQuadlets': '-X',
-        'MaterialGroups': '-Y',
-        'MaterialQuadlets': '-Z',
-        'BigMessageDataGroups': '-0U',
         'BigAttachedMaterialQuadlets': '-0V',
-        'BigMessageDataMaterialQuadlets': '-0W',
-        'BigCombinedMaterialQuadlets': '-0X',
-        'BigMaterialGroups': '-0Y',
-        'BigMaterialQuadlets': '-0Z'
+        'KERIProtocolStack': '--AAA',
     }
+
+    #assert dataclasses.asdict(CtrDex) == {
+        #'ControllerIdxSigs': '-A',
+        #'WitnessIdxSigs': '-B',
+        #'NonTransReceiptCouples': '-C',
+        #'TransReceiptQuadruples': '-D',
+        #'FirstSeenReplayCouples': '-E',
+        #'TransIdxSigGroups': '-F',
+        #'SealSourceCouples': '-G',
+        #'TransLastIdxSigGroups': '-H',
+        #'SealSourceTriples': '-I',
+        #'SadPathSig': '-J',
+        #'SadPathSigGroup': '-K',
+        #'PathedMaterialQuadlets': '-L',
+        #'MessageDataGroups': '-U',
+        #'AttachedMaterialQuadlets': '-V',
+        #'MessageDataMaterialQuadlets': '-W',
+        #'CombinedMaterialQuadlets': '-X',
+        #'MaterialGroups': '-Y',
+        #'MaterialQuadlets': '-Z',
+        #'BigMessageDataGroups': '-0U',
+        #'BigAttachedMaterialQuadlets': '-0V',
+        #'BigMessageDataMaterialQuadlets': '-0W',
+        #'BigCombinedMaterialQuadlets': '-0X',
+        #'BigMaterialGroups': '-0Y',
+        #'BigMaterialQuadlets': '-0Z'
+    #}
 
     assert CtrDex.ControllerIdxSigs == '-A'
     assert CtrDex.WitnessIdxSigs == '-B'
@@ -2224,7 +2242,7 @@ def test_counter():
         '-a': 2, '-b': 2, '-c': 2, '-d': 2, '-e': 2, '-f': 2, '-g': 2, '-h': 2, '-i': 2,
         '-j': 2, '-k': 2, '-l': 2, '-m': 2, '-n': 2, '-o': 2, '-p': 2, '-q': 2, '-r': 2,
         '-s': 2, '-t': 2, '-u': 2, '-v': 2, '-w': 2, '-x': 2, '-y': 2, '-z': 2,
-        '-0': 3
+        '-0': 3, '--': 5,
     }
 
     # Codes table with sizes of code (hard) and full primitive material
@@ -2240,27 +2258,10 @@ def test_counter():
         '-I': Sizage(hs=2, ss=2, fs=4, ls=0),
         '-J': Sizage(hs=2, ss=2, fs=4, ls=0),
         '-K': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-U': Sizage(hs=2, ss=2, fs=4, ls=0),
         '-L': Sizage(hs=2, ss=2, fs=4, ls=0),
         '-V': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-W': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-X': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-Y': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-Z': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-a': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-c': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-d': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-e': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-k': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-l': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-r': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-w': Sizage(hs=2, ss=2, fs=4, ls=0),
-        '-0U': Sizage(hs=3, ss=5, fs=8, ls=0),
         '-0V': Sizage(hs=3, ss=5, fs=8, ls=0),
-        '-0W': Sizage(hs=3, ss=5, fs=8, ls=0),
-        '-0X': Sizage(hs=3, ss=5, fs=8, ls=0),
-        '-0Y': Sizage(hs=3, ss=5, fs=8, ls=0),
-        '-0Z': Sizage(hs=3, ss=5, fs=8, ls=0)
+        '--AAA': Sizage(hs=5, ss=3, fs=8, ls=0)
     }
 
     assert Counter.Sizes['-A'].hs == 2  # hard size
@@ -2378,34 +2379,34 @@ def test_counter():
 
     # test with big codes index=1024
     count = 1024
-    qsc = CtrDex.BigMessageDataGroups + intToB64(count, l=5)
-    assert qsc == '-0UAAAQA'
+    qsc = CtrDex.BigAttachedMaterialQuadlets + intToB64(count, l=5)
+    assert qsc == '-0VAAAQA'
     qscb = qsc.encode("utf-8")
     qscb2 = decodeB64(qscb)
 
-    counter = Counter(code=CtrDex.BigMessageDataGroups, count=count)
-    assert counter.code == CtrDex.BigMessageDataGroups
+    counter = Counter(code=CtrDex.BigAttachedMaterialQuadlets, count=count)
+    assert counter.code == CtrDex.BigAttachedMaterialQuadlets
     assert counter.count == count
     assert counter.qb64b == qscb
     assert counter.qb64 == qsc
     assert counter.qb2 == qscb2
 
     counter = Counter(qb64b=qscb)  # test with bytes not str
-    assert counter.code == CtrDex.BigMessageDataGroups
+    assert counter.code == CtrDex.BigAttachedMaterialQuadlets
     assert counter.count == count
     assert counter.qb64b == qscb
     assert counter.qb64 == qsc
     assert counter.qb2 == qscb2
 
     counter = Counter(qb64=qsc)  # test with str not bytes
-    assert counter.code == CtrDex.BigMessageDataGroups
+    assert counter.code == CtrDex.BigAttachedMaterialQuadlets
     assert counter.count == count
     assert counter.qb64b == qscb
     assert counter.qb64 == qsc
     assert counter.qb2 == qscb2
 
     counter = Counter(qb2=qscb2)  # test with qb2
-    assert counter.code == CtrDex.BigMessageDataGroups
+    assert counter.code == CtrDex.BigAttachedMaterialQuadlets
     assert counter.count == count
     assert counter.qb64b == qscb
     assert counter.qb64 == qsc
@@ -2488,14 +2489,14 @@ def test_counter():
 
     # test with big codes index=1024
     count = 1024
-    qsc = CtrDex.BigMessageDataGroups + intToB64(count, l=5)
-    assert qsc == '-0UAAAQA'
+    qsc = CtrDex.BigAttachedMaterialQuadlets + intToB64(count, l=5)
+    assert qsc == '-0VAAAQA'
     qscb = qsc.encode("utf-8")
     qscb2 = decodeB64(qscb)
 
     ims = bytearray(qscb)
     counter = Counter(qb64b=ims, strip=True)  # test with bytes not str
-    assert counter.code == CtrDex.BigMessageDataGroups
+    assert counter.code == CtrDex.BigAttachedMaterialQuadlets
     assert counter.count == count
     assert counter.qb64b == qscb
     assert counter.qb64 == qsc
@@ -2504,12 +2505,80 @@ def test_counter():
 
     ims = bytearray(qscb2)
     counter = Counter(qb2=ims, strip=True)  # test with qb2
-    assert counter.code == CtrDex.BigMessageDataGroups
+    assert counter.code == CtrDex.BigAttachedMaterialQuadlets
     assert counter.count == count
     assert counter.qb64b == qscb
     assert counter.qb64 == qsc
     assert counter.qb2 == qscb2
     assert not ims
+
+    #test protocol genus with CESR version
+    # test with big codes index=1024
+    verint = 0
+    version = intToB64(verint, l=3)
+    assert version == 'AAA'
+    assert verint == b64ToInt(version)
+    qsc = CtrDex.KERIProtocolStack + version
+    assert qsc == '--AAAAAA'  # keri Cesr version 0.0.0
+    qscb = qsc.encode("utf-8")
+    qscb2 = decodeB64(qscb)
+
+    counter = Counter(code=CtrDex.KERIProtocolStack, count=verint)
+    assert counter.code == CtrDex.KERIProtocolStack
+    assert counter.count == verint
+    assert counter.countToB64(l=3) == version
+    assert counter.countToB64() == version  # default length
+    assert counter.qb64b == qscb
+    assert counter.qb64 == qsc
+    assert counter.qb2 == qscb2
+
+    counter = Counter(code=CtrDex.KERIProtocolStack, countB64=version)
+    assert counter.code == CtrDex.KERIProtocolStack
+    assert counter.count == verint
+    assert counter.countToB64(l=3) == version
+    assert counter.countToB64() == version  # default length
+    assert counter.qb64b == qscb
+    assert counter.qb64 == qsc
+    assert counter.qb2 == qscb2
+
+    assert Counter.semVerToB64("1.2.3") == "BCD"
+    assert Counter.semVerToB64() == "AAA"
+    assert Counter.semVerToB64(major=1) == "BAA"
+    assert Counter.semVerToB64(minor=1) == "ABA"
+    assert Counter.semVerToB64(patch=1) == "AAB"
+    assert Counter.semVerToB64(major=3, minor=4, patch=5) == "DEF"
+
+    # test defaults for missing parts in string version
+    assert Counter.semVerToB64(version="1.1") == "BBA"
+    assert Counter.semVerToB64(version="1.") == "BAA"
+    assert Counter.semVerToB64(version="1") == "BAA"
+    assert Counter.semVerToB64(version="1.2.") == "BCA"
+    assert Counter.semVerToB64(version="..") == "AAA"
+    assert Counter.semVerToB64(version="1..3") == "BAD"
+    assert Counter.semVerToB64(version="4", major=1, minor=2, patch=3) == "ECD"
+
+    with pytest.raises(ValueError):
+        Counter.semVerToB64(version="64.0.1")
+    with pytest.raises(ValueError):
+        Counter.semVerToB64(version="-1.0.1")
+    with pytest.raises(ValueError):
+        Counter.semVerToB64(version="0.0.64")
+    with pytest.raises(ValueError):
+        Counter.semVerToB64(major=64)
+    with pytest.raises(ValueError):
+        Counter.semVerToB64(minor=-1)
+    with pytest.raises(ValueError):
+        Counter.semVerToB64(patch=-1)
+
+    """ Done Test """
+
+def test_prodex():
+    """
+    Test ProtocolGenusCodex
+    """
+    assert dataclasses.asdict(ProDex) == {
+        'KERI': '--AAA',
+    }
 
     """ Done Test """
 
@@ -4210,67 +4279,6 @@ def test_diger():
     """ Done Test """
 
 
-def test_nexter():
-    """
-    Test the support functionality for Nexter subclass of Diger
-    """
-    raw = b"raw salt to test"
-
-    #  create signers with verfers for keys
-    signers = coring.Salter(raw=raw).signers(count=3, path="next", temp=True)
-
-    keys = [signer.verfer.qb64 for signer in signers]
-    assert keys == ['DKX2UxU85IcgiGdhfAQUfd2kYyVVf6CLUp7ejNBlCYyC',
-                    'DDo75eoTr0yuYsgEwf5PGAZ7z9dsDb7jjt0ymdNGMKIy',
-                    'DBnsqw0gaUXMBqFs_4A3wUjnOyiVEMCrY5tWwvRj-wwl']
-
-    digers = [Diger(ser=signer.verfer.qb64b) for signer in signers]
-    digs = [diger.qb64 for diger in digers]
-    assert digs == ['EAfMsW8tCq-tdsBufV9kqgqvfuKVWNdf9mSpIXQ1Vjdf',
-                    'EA76Pjxa03Bm62TjwO07C3_EVViO4Bgn5SLSr7FedoEG',
-                    'EBnncARb7X0yWLOTBW9X387vakzaiAwF6DCFYdiIDob2']
-
-    nexter = Nexter(digs=digs)
-    assert nexter.includes(digs=digs)
-
-    nexter = Nexter(keys=keys)  # compute digs from keys default is Blake3_256
-    assert len(nexter.digs) == len(keys)
-    assert nexter.includes(keys=keys)
-    assert nexter.includes(keys=keys + ['ABCDEF']) is False
-
-    ked = dict(k=keys)  # subsequent event
-    nexter = Nexter(keys=ked['k'])
-    assert len(nexter.digs) == len(ked['k'])
-    assert nexter.includes(keys=ked['k'])
-
-    #  Test support for partial rotation
-    signers = coring.Salter(raw=raw).signers(count=10, start=3, path="next", temp=True)
-    digers = [Diger(ser=signer.verfer.qb64b) for signer in signers]
-
-    # grab first 5 for our nexter
-    nexter = Nexter(digs=[diger.qb64 for diger in digers[0:5]])
-
-    # verify inclusion against full set
-    assert nexter.includes(digs=nexter.digs)
-
-    # verify inclusion against a proper subset
-    assert nexter.includes(digs=[diger.qb64 for diger in digers[2:5]])
-
-    # verify inclusion against a single existing dig from set
-    assert nexter.includes(digs=[digers[4].qb64])
-
-    # verify inclusion against a single existing dig not from set
-    assert not nexter.includes(digs=[digers[7].qb64])
-
-    # verify inclusion against non-contiguous subset
-    assert nexter.includes(digs=[digers[1].qb64, digers[3].qb64, digers[4].qb64])
-
-    # verify inclusion against non subset
-    assert not nexter.includes(digs=[digers[1].qb64, digers[3].qb64, digers[6].qb64])
-
-    """ Done Test """
-
-
 def test_prefixer():
     """
     Test the support functionality for prefixer subclass of crymat
@@ -4414,15 +4422,15 @@ def test_prefixer():
     assert prefixer.verify(ked=ked) == True
     assert prefixer.verify(ked=ked, prefixed=True) == False
 
-    # test with Nexter
-    nexter = Nexter(keys=[nxtfer.qb64])
+    # test with next digs
+    ndigs = [Diger(ser=nxtfer.qb64b).qb64]
     ked = dict(v=vs,  # version string
                i="",  # qb64 prefix
                s="{:x}".format(sn),  # hex string no leading zeros lowercase
                t=ilk,
                kt=sith,  # hex string no leading zeros lowercase
                k=keys,  # list of qb64
-               n=nexter.digs,  # hash qual Base64
+               n=ndigs,  # hash qual Base64
                wt="{:x}".format(toad),  # hex string no leading zeros lowercase
                w=wits,  # list of qb64 may be empty
                c=cnfg,  # list of config ordered mappings may be empty
@@ -4456,14 +4464,14 @@ def test_prefixer():
     # Test with sith with one clause
     keys = [signers[0].verfer.qb64, signers[1].verfer.qb64, signers[2].verfer.qb64]
     sith = [["1/2", "1/2", "1"]]
-    nexter = Nexter(keys=[signers[3].verfer.qb64])  # default limen/sith
+    ndigs = [Diger(ser=signers[3].verfer.qb64b).qb64]  # default limen/sith
     ked = dict(v=vs,  # version string
                i="",  # qb64 prefix
                s="{:x}".format(sn),  # hex string no leading zeros lowercase
                t=ilk,
                kt=sith,  # hex string no leading zeros lowercase
                k=keys,  # list of qb64
-               n=nexter.digs,  # hash qual Base64
+               n=ndigs,  # hash qual Base64
                wt="{:x}".format(toad),  # hex string no leading zeros lowercase
                w=wits,  # list of qb64 may be empty
                c=cnfg,  # list of config ordered mappings may be empty
@@ -4482,7 +4490,7 @@ def test_prefixer():
                t=ilk,
                kt=sith,  # hex string no leading zeros lowercase
                k=keys,  # list of qb64
-               n=nexter.digs,  # hash qual Base64
+               n=ndigs,  # hash qual Base64
                wt="{:x}".format(toad),  # hex string no leading zeros lowercase
                w=wits,  # list of qb64 may be empty
                c=cnfg,  # list of config ordered mappings may be empty
@@ -4506,7 +4514,7 @@ def test_prefixer():
                t=Ilks.dip,
                kt=sith,  # hex string no leading zeros lowercase
                k=keys,  # list of qb64
-               n=nexter.digs,  # hash qual Base64
+               n=ndigs,  # hash qual Base64
                wt="{:x}".format(toad),  # hex string no leading zeros lowercase
                w=wits,  # list of qb64 may be empty
                c=cnfg,  # list of config ordered mappings may be empty
@@ -5809,12 +5817,55 @@ def test_tholder():
     assert not tholder.satisfy(indices=[2, 3, 4])
     assert not tholder.satisfy(indices=[])
 
+
+
+    raw = b"raw salt to test"
+
+    #  create signers with verfers for keys
+    signers = coring.Salter(raw=raw).signers(count=3, path="next", temp=True)
+
+    keys = [signer.verfer.qb64 for signer in signers]
+    assert keys == ['DKX2UxU85IcgiGdhfAQUfd2kYyVVf6CLUp7ejNBlCYyC',
+                    'DDo75eoTr0yuYsgEwf5PGAZ7z9dsDb7jjt0ymdNGMKIy',
+                    'DBnsqw0gaUXMBqFs_4A3wUjnOyiVEMCrY5tWwvRj-wwl']
+
+    digers = [Diger(ser=signer.verfer.qb64b) for signer in signers]
+    digs = [diger.qb64 for diger in digers]
+    assert digs == ['EAfMsW8tCq-tdsBufV9kqgqvfuKVWNdf9mSpIXQ1Vjdf',
+                    'EA76Pjxa03Bm62TjwO07C3_EVViO4Bgn5SLSr7FedoEG',
+                    'EBnncARb7X0yWLOTBW9X387vakzaiAwF6DCFYdiIDob2']
+
+    assert tholder.includes(keys, digs)
+
+    bdigs = list(digs)
+    del bdigs[0]
+    assert not tholder.includes(keys, bdigs)
+
+    bkeys = list(keys)
+    del bkeys[1]
+    assert tholder.includes(bkeys, digs)
+
+    bkeys.append(keys[1])
+    assert not tholder.includes(bkeys, digs)
+
+    signer = Signer()
+    # create something to sign and verify
+    ser = b'abcdefghijklmnopqrstuvwxyz0123456789'
+    index = 0
+    siger = signer.sign(ser, index=index)
+    digs = [Diger(ser=siger.verfer.qb64b).qb64]
+    sigers = [siger]
+
+    assert tholder.matches(sigers, digs) == [0]
+
+
     """ Done Test """
 
 
 if __name__ == "__main__":
     #test_matter()
     #test_counter()
+    #test_prodex()
     #test_indexer()
     #test_number()
     #test_siger()
